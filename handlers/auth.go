@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"time"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -20,19 +20,24 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	if user.Username == "" || user.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Имя пользователя и пароль обязательны"})
+		return
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Password encryption failed"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка шифрования пароля"})
 		return
 	}
 	user.Password = string(hashedPassword)
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User already exists"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Пользователь уже существует"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Пользователь зарегистрирован"})
 }
 
 func Login(c *gin.Context) {
@@ -44,23 +49,23 @@ func Login(c *gin.Context) {
 
 	var user models.User
 	if err := database.DB.Where("username = ?", creds.Username).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не найден"})
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(creds.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect password"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный пароль"})
 		return
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+		"exp":     time.Now().Add(72 * time.Hour).Unix(),
 	})
 
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка генерации токена"})
 		return
 	}
 

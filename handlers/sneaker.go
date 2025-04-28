@@ -12,16 +12,13 @@ func GetSneakers(c *gin.Context) {
 	var sneakers []models.Sneaker
 
 	title := c.Query("title")
-
 	query := database.DB
 
-	// Фильтрация по полю Name
 	if title != "" {
 		query = query.Where("name ILIKE ?", "%"+title+"%")
 	}
 
 	if err := query.Find(&sneakers).Error; err != nil {
-		// Возвращаем точную ошибку для отладки
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -41,9 +38,16 @@ func GetSneakerByID(c *gin.Context) {
 func CreateSneaker(c *gin.Context) {
 	var sneaker models.Sneaker
 	if err := c.ShouldBindJSON(&sneaker); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Некорректный формат данных"})
 		return
 	}
+
+	// Валидация данных
+	if sneaker.Name == "" || sneaker.Price <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Название и цена кроссовки обязательны"})
+		return
+	}
+
 	if err := database.DB.Create(&sneaker).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при создании записи"})
 		return
@@ -57,10 +61,12 @@ func UpdateSneaker(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Кроссовка не найдена"})
 		return
 	}
+
 	if err := c.ShouldBindJSON(&sneaker); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Некорректный формат данных"})
 		return
 	}
+
 	if err := database.DB.Save(&sneaker).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при обновлении записи"})
 		return
@@ -69,9 +75,15 @@ func UpdateSneaker(c *gin.Context) {
 }
 
 func DeleteSneaker(c *gin.Context) {
-	if err := database.DB.Delete(&models.Sneaker{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Не удалось удалить кроссовку"})
+	result := database.DB.Delete(&models.Sneaker{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при удалении кроссовки"})
 		return
 	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Кроссовка не найдена"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Кроссовка удалена"})
 }
