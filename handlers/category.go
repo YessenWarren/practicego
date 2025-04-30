@@ -4,15 +4,32 @@ import (
 	"net/http"
 	"sneakers/database"
 	"sneakers/models"
-
+    "strconv"
 	"github.com/gin-gonic/gin"
 )
 
 func GetCategories(c *gin.Context) {
 	var categories []models.Category
-	database.DB.Find(&categories)
+
+	// Пагинация
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil {
+		limit = 10
+	}
+
+	query := database.DB.Offset((page - 1) * limit).Limit(limit)
+	if err := query.Find(&categories).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, categories)
 }
+
 
 func GetCategoryByID(c *gin.Context) {
 	var category models.Category

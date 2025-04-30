@@ -13,6 +13,7 @@ import (
 
 var jwtKey = []byte("secret_key")
 
+// Регистрация пользователя
 func Register(c *gin.Context) {
 	var user models.User
 	if err := c.BindJSON(&user); err != nil {
@@ -40,6 +41,7 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Пользователь зарегистрирован"})
 }
 
+// Логин пользователя
 func Login(c *gin.Context) {
 	var creds models.User
 	if err := c.BindJSON(&creds); err != nil {
@@ -72,7 +74,9 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": tokenString})
 }
 
-func GetProfile(c *gin.Context) {
+// Получение user_id из токена
+func GetUserIDFromToken(c *gin.Context) {
+	// Извлечение user_id из токена
 	userID := c.GetUint("user_id")
 	c.JSON(http.StatusOK, gin.H{"user_id": userID})
 }

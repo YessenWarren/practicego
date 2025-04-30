@@ -4,19 +4,33 @@ import (
 	"net/http"
 	"sneakers/database"
 	"sneakers/models"
-
+    "strconv"
 	"github.com/gin-gonic/gin"
 )
 
 func GetSneakers(c *gin.Context) {
 	var sneakers []models.Sneaker
 
-	title := c.Query("title")
+	// Пагинация
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil {
+		limit = 10
+	}
+
+	// Фильтрация
+	title := c.DefaultQuery("title", "")
 	query := database.DB
 
 	if title != "" {
 		query = query.Where("name ILIKE ?", "%"+title+"%")
 	}
+
+	// Применяем пагинацию
+	query = query.Offset((page - 1) * limit).Limit(limit)
 
 	if err := query.Find(&sneakers).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -25,6 +39,7 @@ func GetSneakers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, sneakers)
 }
+
 
 func GetSneakerByID(c *gin.Context) {
 	var sneaker models.Sneaker
@@ -86,4 +101,25 @@ func DeleteSneaker(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Кроссовка удалена"})
+}
+
+
+func SearchSneakers(c *gin.Context) {
+	var sneakers []models.Sneaker
+	category := c.DefaultQuery("category", "")
+	brand := c.DefaultQuery("brand", "")
+	priceMin := c.DefaultQuery("price_min", "0")
+	priceMax := c.DefaultQuery("price_max", "10000")
+
+	// Фильтрация
+	query := database.DB.Where("category LIKE ?", "%"+category+"%").
+		Where("brand LIKE ?", "%"+brand+"%").
+		Where("price BETWEEN ? AND ?", priceMin, priceMax)
+
+	if err := query.Find(&sneakers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, sneakers)
 }
